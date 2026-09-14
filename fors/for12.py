@@ -1,12 +1,10 @@
-from sys import exit
-
 n = int(input())
-sum = 0
+sum = 1
 
 if n <= 0:
     exit(1)
     
 for i in range(n):
-    sum += (1/(i + 1))
+    sum *= 1 + ((i + 1) / 10)
 
 print(f"\n{sum}")
