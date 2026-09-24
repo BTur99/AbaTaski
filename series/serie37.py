@@ -9,18 +9,30 @@ def is_act(arr):
         r = True
     return r
 
+def is_des(arr):
+    l = arr
+    c = 0
+    r = False
+    for j in range(len(l) - 1):
+        if l[j + 1] < l[j]:
+            c += 1
+    if c == len(l) - 1:
+        r = True
+    return r
+
 try:
     k = int(input())
     m = []
-    t = []
+    t = 0
     for i in range(k):
         m.append([])
         while 0 not in m[i]:
             m[i].append(int(input()))
         m[i].pop()
-        t.append(is_act(m[i]))
+        if is_act(m[i]) or is_des(m[i]):
+            t += 1 
 
     print(*m)
-    print(*t)
+    print(t)
 except:
     print("DUCKYOU")

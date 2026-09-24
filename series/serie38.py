@@ -9,6 +9,17 @@ def is_act(arr):
         r = True
     return r
 
+def is_des(arr):
+    l = arr
+    c = 0
+    r = False
+    for j in range(len(l) - 1):
+        if l[j + 1] < l[j]:
+            c += 1
+    if c == len(l) - 1:
+        r = True
+    return r
+
 try:
     k = int(input())
     m = []
@@ -18,7 +29,12 @@ try:
         while 0 not in m[i]:
             m[i].append(int(input()))
         m[i].pop()
-        t.append(is_act(m[i]))
+        if is_act(m[i]):
+            t.append(1)
+        elif is_des(m[i]):
+            t.append(-1)
+        else:
+            t.append(0)
 
     print(*m)
     print(*t)
