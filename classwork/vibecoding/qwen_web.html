@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Academy - Изучай Python в браузере</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #3c3c3c;
+            border-top-color: #0e639c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #d4d4d4;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .container.visible {
+            opacity: 1;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: #252526;
+            border-right: 1px solid #3c3c3c;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3c3c3c;
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            color: #0e639c;
+            font-weight: 600;
+        }
+
+        .sidebar-header p {
+            font-size: 12px;
+            color: #858585;
+            margin-top: 5px;
+        }
+
+        .lessons-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+
+        .lesson-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lesson-item:hover {
+            background: #2a2d2e;
+        }
+
+        .lesson-item.active {
+            background: #37373d;
+            border-left-color: #0e639c;
+        }
+
+        .lesson-item.completed .lesson-indicator {
+            background: #4ec9b0;
+        }
+
+        .lesson-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #555;
+            flex-shrink: 0;
+        }
+
+        .lesson-title {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .theory-panel {
+            flex: 1;
+            background: #1e1e1e;
+            overflow-y: auto;
+            padding: 30px;
+            border-right: 1px solid #3c3c3c;
+        }
+
+        .theory-panel h2 {
+            color: #4ec9b0;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .theory-content {
+            line-height: 1.8;
+            font-size: 15px;
+        }
+
+        .theory-content p {
+            margin-bottom: 15px;
+        }
+
+        .theory-content code {
+            background: #2d2d30;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #ce9178;
+        }
+
+        .theory-content pre {
+            background: #2d2d30;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .theory-content pre code {
+            background: none;
+            padding: 0;
+            color: #d4d4d4;
+        }
+
+        .editor-panel {
+            width: 500px;
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+        }
+
+        .editor-header {
+            padding: 15px 20px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3c3c3c;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #0e639c;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1177bb;
+        }
+
+        .btn-secondary {
+            background: #3c3c3c;
+            color: #d4d4d4;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4a4a;
+        }
+
+        .btn-success {
+            background: #4ec9b0;
+            color: #1e1e1e;
+        }
+
+        .btn-success:hover {
+            background: #5fd4b8;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .code-editor {
+            flex: 1;
+            padding: 20px;
+            background: #1e1e1e;
+            border: none;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            overflow: auto;
+        }
+
+        .console-output {
+            height: 200px;
+            background: #000000;
+            padding: 15px 20px;
+            border-top: 1px solid #3c3c3c;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            color: #d4d4d4;
+        }
+
+        .console-output .success {
+            color: #4ec9b0;
+            font-weight: 600;
+        }
+
+        .console-output .error {
+            color: #f48771;
+        }
+
+        .console-output .info {
+            color: #569cd6;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4a4a4a;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div class="loading-text">Загрузка Python-среды...</div>
+    </div>
+
+    <div class="container" id="main-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>🐍 Python Academy</h1>
+                <p>Изучай Python в браузере</p>
+            </div>
+            <div class="lessons-list" id="lessons-list"></div>
+        </div>
+
+        <div class="main-content">
+            <div class="theory-panel">
+                <h2 id="lesson-title"></h2>
+                <div class="theory-content" id="theory-content"></div>
+            </div>
+
+            <div class="editor-panel">
+                <div class="editor-header">
+                    <button class="btn btn-primary" id="run-btn" disabled>Запустить ▶</button>
+                    <button class="btn btn-secondary" id="reset-btn">Сбросить код</button>
+                    <button class="btn btn-success" id="next-btn">Следующий урок →</button>
+                </div>
+                <textarea class="code-editor" id="code-editor" spellcheck="false"></textarea>
+                <div class="console-output" id="console-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script>
+        const lessons = [
+            {
+                id: 1,
+                title: "Функция print()",
+                theory: `
+                    <p>Функция <code>print()</code> используется для вывода информации на экран. Это одна из самых базовых функций в Python.</p>
+                    <p>Пример использования:</p>
+                    <pre><code>print("Привет, мир!")
+print(42)
+print("Мне", 25, "лет")</code></pre>
+                    <p>Функция <code>print()</code> может принимать несколько аргументов через запятую и выводит их через пробел.</p>
+                    <p><strong>Задание:</strong> Выведите на экран текст "Hello, Python!"</p>
+                `,
+                starterCode: `# Выведите "Hello, Python!"\n`,
+                expectedOutput: "Hello, Python!"
+            },
+            {
+                id: 2,
+                title: "Переменные и f-строки",
+                theory: `
+                    <p>Переменные используются для хранения данных. В Python не нужно указывать тип переменной.</p>
+                    <pre><code>name = "Алексей"
+age = 30
+print(name)
+print(age)</code></pre>
+                    <p>F-строки (форматированные строки) позволяют вставлять значения переменных прямо в строку:</p>
+                    <pre><code>name = "Мария"
+age = 25
+print(f"Меня зовут {name} и мне {age} лет")</code></pre>
+                    <p><strong>Задание:</strong> Создайте переменные <code>city = "Москва"</code> и <code>year = 2024</code>, затем выведите: "Москва - 2024"</p>
+                `,
+                starterCode: `# Создайте переменные city и year\n# Выведите: Москва - 2024\n`,
+                expectedOutput: "Москва - 2024"
+            },
+            {
+                id: 3,
+                title: "Условные операторы (if/else)",
+                theory: `
+                    <p>Условные операторы позволяют выполнять разный код в зависимости от условий.</p>
+                    <pre><code>age = 18
+
+if age >= 18:
+    print("Совершеннолетний")
+else:
+    print("Несовершеннолетний")</code></pre>
+                    <p>Можно использовать несколько условий с помощью <code>elif</code>:</p>
+                    <pre><code>score = 85
+
+if score >= 90:
+    print("Отлично")
+elif score >= 70:
+    print("Хорошо")
+else:
+    print("Нужно постараться")</code></pre>
+                    <p><strong>Задание:</strong> Создайте переменную <code>temperature = 25</code>. Если температура больше 20, выведите "Тепло", иначе "Холодно"</p>
+                `,
+                starterCode: `# Создайте переменную temperature = 25\n# Проверьте условие и выведите результат\n`,
+                expectedOutput: "Тепло"
+            },
+            {
+                id: 4,
+                title: "Циклы (for)",
+                theory: `
+                    <p>Цикл <code>for</code> используется для перебора элементов последовательности.</p>
+                    <pre><code># Перебор списка
+fruits = ["яблоко", "банан", "вишня"]
+for fruit in fruits:
+    print(fruit)</code></pre>
+                    <p>Функция <code>range()</code> генерирует последовательность чисел:</p>
+                    <pre><code># Вывод чисел от 0 до 4
+for i in range(5):
+    print(i)</code></pre>
+                    <p><strong>Задание:</strong> Выведите числа от 1 до 5, каждое на новой строке</p>
+                `,
+                starterCode: `# Выведите числа от 1 до 5\n`,
+                expectedOutput: "1\n2\n3\n4\n5"
+            },
+            {
+                id: 5,
+                title: "Функции (def)",
+                theory: `
+                    <p>Функции позволяют группировать код для повторного использования.</p>
+                    <pre><code>def greet(name):
+    print(f"Привет, {name}!")
+
+greet("Анна")  # Выведет: Привет, Анна!</code></pre>
+                    <p>Функции могут возвращать значения с помощью <code>return</code>:</p>
+                    <pre><code>def add(a, b):
+    return a + b
+
+result = add(5, 3)
+print(result)  # Выведет: 8</code></pre>
+                    <p><strong>Задание:</strong> Создайте функцию <code>square(n)</code>, которая возвращает квадрат числа. Выведите результат <code>square(7)</code></p>
+                `,
+                starterCode: `# Создайте функцию square(n)\n# Выведите результат square(7)\n`,
+                expectedOutput: "49"
+            }
+        ];
+
+        let currentLessonIndex = 0;
+        let completedLessons = new Set();
+        let pyodide = null;
+
+        // Инициализация Pyodide
+        async function initPyodide() {
+            try {
+                pyodide = await loadPyodide();
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('main-container').classList.add('visible');
+                document.getElementById('run-btn').disabled = false;
+                loadLesson(0);
+            } catch (error) {
+                console.error('Ошибка загрузки Pyodide:', error);
+                document.querySelector('.loading-text').textContent = 'Ошибка загрузки. Обновите страницу.';
+            }
+        }
+
+        // Загрузка урока
+        function loadLesson(index) {
+            currentLessonIndex = index;
+            const lesson = lessons[index];
+
+            document.getElementById('lesson-title').textContent = `Урок ${lesson.id}: ${lesson.title}`;
+            document.getElementById('theory-content').innerHTML = lesson.theory;
+            document.getElementById('code-editor').value = lesson.starterCode;
+            document.getElementById('console-output').innerHTML = '';
+
+            updateSidebar();
+            updateButtons();
+        }
+
+        // Обновление сайдбара
+        function updateSidebar() {
+            const lessonsList = document.getElementById('lessons-list');
+            lessonsList.innerHTML = '';
+
+            lessons.forEach((lesson, index) => {
+                const lessonItem = document.createElement('div');
+                lessonItem.className = 'lesson-item';
+                if (index === currentLessonIndex) lessonItem.classList.add('active');
+                if (completedLessons.has(lesson.id)) lessonItem.classList.add('completed');
+
+                lessonItem.innerHTML = `
+                    <div class="lesson-indicator"></div>
+                    <div class="lesson-title">${lesson.title}</div>
+                `;
+
+                lessonItem.addEventListener('click', () => loadLesson(index));
+                lessonsList.appendChild(lessonItem);
+            });
+        }
+
+        // Обновление кнопок
+        function updateButtons() {
+            const nextBtn = document.getElementById('next-btn');
+            nextBtn.disabled = currentLessonIndex === lessons.length - 1;
+        }
+
+        // Выполнение кода
+        async function runCode() {
+            const code = document.getElementById('code-editor').value;
+            const consoleOutput = document.getElementById('console-output');
+            consoleOutput.innerHTML = '';
+
+            const runBtn = document.getElementById('run-btn');
+            runBtn.disabled = true;
+            runBtn.textContent = 'Выполнение...';
+
+            try {
+                // Перехватываем вывод
+                pyodide.runPython(`
+import sys
+from io import StringIO
+sys.stdout = StringIO()
+`);
+
+                await pyodide.runPythonAsync(code);
+
+                const output = pyodide.runPython('sys.stdout.getvalue()').trim();
+                
+                if (output) {
+                    consoleOutput.innerHTML += `<div>${escapeHtml(output)}</div>`;
+                }
+
+                const lesson = lessons[currentLessonIndex];
+                if (output === lesson.expectedOutput) {
+                    consoleOutput.innerHTML += `<div class="success">✅ Задание выполнено верно!</div>`;
+                    completedLessons.add(lesson.id);
+                    updateSidebar();
+                } else if (output) {
+                    consoleOutput.innerHTML += `<div class="info">Ожидаемый вывод: ${escapeHtml(lesson.expectedOutput)}</div>`;
+                }
+
+            } catch (error) {
+                consoleOutput.innerHTML += `<div class="error">Ошибка: ${escapeHtml(error.message)}</div>`;
+            } finally {
+                runBtn.disabled = false;
+                runBtn.textContent = 'Запустить ▶';
+            }
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Сброс кода
+        function resetCode() {
+            const lesson = lessons[currentLessonIndex];
+            document.getElementById('code-editor').value = lesson.starterCode;
+            document.getElementById('console-output').innerHTML = '';
+        }
+
+        // Следующий урок
+        function nextLesson() {
+            if (currentLessonIndex < lessons.length - 1) {
+                loadLesson(currentLessonIndex + 1);
+            }
+        }
+
+        // Обработчики событий
+        document.getElementById('run-btn').addEventListener('click', runCode);
+        document.getElementById('reset-btn').addEventListener('click', resetCode);
+        document.getElementById('next-btn').addEventListener('click', nextLesson);
+
+        // Запуск инициализации
+        initPyodide();
+    </script>
+</body>
+</html>

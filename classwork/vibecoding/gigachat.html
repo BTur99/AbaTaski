@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyLearn: Курс Python в браузере</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <style>
+        :root {
+            --bg-main: #1e1e1e;
+            --bg-sidebar: #252526;
+            --bg-panel: #2d2d2d;
+            --text-main: #d4d4d4;
+            --text-muted: #858585;
+            --accent: #007acc;
+            --success: #378737;
+            --border: #333333;
+            --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-main);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            gap: 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .app {
+            display: grid;
+            grid-template-columns: 280px 1fr 1fr;
+            grid-template-rows: 1fr 150px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .sidebar {
+            background-color: var(--bg-sidebar);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .lesson-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .lesson-item:hover {
+            background-color: #333333;
+        }
+
+        .lesson-item.active {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .lesson-item.completed {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .lesson-item.completed .indicator {
+            background-color: var(--success);
+        }
+
+        .content {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .content h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .content pre {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+
+        .editor-panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .editor-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #005a87;
+        }
+
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        .console {
+            background-color: #000000;
+            color: #00ff00;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            overflow-y: auto;
+            height: 100%;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        code {
+            background-color: #1e1e1e;
+            color: #ce9178;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: var(--font-mono);
+        }
+    </style>
+</head>
+<body>
+<div id="loading-screen">
+    <div class="spinner"></div>
+    <div style="color: var(--text-muted);">Загрузка Python-среды...</div>
+</div>
+
+<div id="app" class="hidden app">
+    <div class="sidebar" id="sidebar"></div>
+
+    <div class="content">
+        <h1 id="lesson-title"></h1>
+        <div id="lesson-theory"></div>
+    </div>
+
+    <div class="editor-panel">
+        <div class="editor-controls">
+            <button id="run-btn">Запустить ▶</button>
+            <button id="reset-btn">Сбросить код</button>
+            <button id="next-btn">Следующий урок</button>
+        </div>
+        <textarea id="code-editor"></textarea>
+        <div class="console" id="console-output"></div>
+    </div>
+</div>
+
+<script>
+    const lessons = [
+        {
+            id: 0,
+            title: "Урок 1: Функция print()",
+            theory: "<p>Функция <code>print()</code> выводит данные на экран. В Python 3 скобки обязательны.</p><pre><code>print('Привет, мир!')\nprint(2 + 2)</code></pre>",
+            initialCode: "print('Привет, мир!')",
+            expectedOutput: "Привет, мир!\n"
+        },
+        {
+            id: 1,
+            title: "Урок 2: Переменные и f-строки",
+            theory: "<p>Переменные хранят данные. f-строки позволяют удобно вставлять переменные в текст.</p><pre><code>name = 'Алексей'\nage = 25\nprint(f'Имя: {name}, Возраст: {age}')</code></pre>",
+            initialCode: "name = 'Студент'\nage = 100\nprint(f'Имя: {name}, Возраст: {age}')",
+            expectedOutput: "Имя: Студент, Возраст: 100\n"
+        },
+        {
+            id: 2,
+            title: "Урок 3: Условные операторы (if/else)",
+            theory: "<p>Конструкция <code>if</code> позволяет выполнять код при выполнении условия.</p><pre><code>age = 20\nif age >= 18:\n    print('Доступ разрешен')\nelse:\n    print('Доступ запрещен')</code></pre>",
+            initialCode: "score = 85\nif score >= 90:\n    print('Отлично')\nelif score >= 75:\n    print('Хорошо')\nelse:\n    print('Попробуй еще раз')",
+            expectedOutput: "Хорошо\n"
+        },
+        {
+            id: 3,
+            title: "Урок 4: Циклы (for)",
+            theory: "<p>Цикл <code>for</code> используется для перебора элементов или повторения действий.</p><pre><code>for i in range(5):\n    print(i)</code></pre>",
+            initialCode: "for i in range(3):\n    print(f'Итерация {i}')",
+            expectedOutput: "Итерация 0\nИтерация 1\nИтерация 2\n"
+        },
+        {
+            id: 4,
+            title: "Урок 5: Функции (def)",
+            theory: "<p>Функции позволяют переиспользовать код. Они объявляются через <code>def</code>.</p><pre><code>def greet(name):\n    return f'Привет, {name}!'\n\nprint(greet('Мир'))</code></pre>",
+            initialCode: "def add(a, b):\n    return a + b\n\nresult = add(10, 20)\nprint(result)",
+            expectedOutput: "30\n"
+        }
+    ];
+
+    let pyodide = null;
+    let currentLesson = 0;
+    const completedLessons = new Set();
+
+    const app = document.getElementById('app');
+    const loadingScreen = document.getElementById('loading-screen');
+    const sidebar = document.getElementById('sidebar');
+    const lessonTitle = document.getElementById('lesson-title');
+    const lessonTheory = document.getElementById('lesson-theory');
+    const codeEditor = document.getElementById('code-editor');
+    const consoleOutput = document.getElementById('console-output');
+    const runBtn = document.getElementById('run-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const nextBtn = document.getElementById('next-btn');
+
+    function renderSidebar() {
+        sidebar.innerHTML = '';
+        lessons.forEach(lesson => {
+            const item = document.createElement('div');
+            item.className = 'lesson-item ' + (lesson.id === currentLesson ? 'active' : '') + (completedLessons.has(lesson.id) ? ' completed' : '');
+            item.innerHTML = `<span class="indicator"></span> ${lesson.title}`;
+            item.onclick = () => loadLesson(lesson.id);
+            sidebar.appendChild(item);
+        });
+    }
+
+    function loadLesson(index) {
+        currentLesson = index;
+        const lesson = lessons[currentLesson];
+        lessonTitle.textContent = lesson.title;
+        lessonTheory.innerHTML = lesson.theory;
+        codeEditor.value = lesson.initialCode;
+        consoleOutput.textContent = '';
+        renderSidebar();
+        nextBtn.disabled = currentLesson >= lessons.length - 1;
+    }
+
+    function appendToConsole(text) {
+        consoleOutput.textContent += text;
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    async function initPyodide() {
+        loadingScreen.style.display = 'flex';
+        try {
+            pyodide = await loadPyodide();
+            loadingScreen.style.display = 'none';
+            app.classList.remove('hidden');
+            loadLesson(0);
+        } catch (err) {
+            consoleOutput.textContent = 'Ошибка загрузки Pyodide: ' + err.message;
+            loadingScreen.style.display = 'none';
+        }
+    }
+
+    runBtn.addEventListener('click', async () => {
+        if (!pyodide) return;
+        const lesson = lessons[currentLesson];
+        const userCode = codeEditor.value;
+        
+        consoleOutput.textContent = '';
+        runBtn.disabled = true;
+
+        try {
+            let result = await pyodide.runPythonAsync(`
+import sys, io
+sys.stdout = io.StringIO()
+${userCode}
+output = sys.stdout.getvalue()
+sys.stdout = sys.__stdout__
+output
+            `);
+            appendToConsole(result);
+
+            if (result === lesson.expectedOutput) {
+                appendToConsole('\\n✅ Задание выполнено верно!');
+                completedLessons.add(lesson.id);
+                renderSidebar();
+            }
+        } catch (err) {
+            appendToConsole('\\n❌ Ошибка выполнения:\\n' + err);
+        } finally {
+            runBtn.disabled = false;
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        const lesson = lessons[currentLesson];
+        codeEditor.value = lesson.initialCode;
+        consoleOutput.textContent = '';
+    });
+
+    nextBtn.addEventListener('click', () => {
+        if (currentLesson < lessons.length - 1) {
+            loadLesson(currentLesson + 1);
+        }
+    });
+
+    initPyodide();
+</script>
+</body>
+</html>
