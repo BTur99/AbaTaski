@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Course — интерактивный тренажёр</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --bg-alt: #252526;
+    --bg-panel: #1b1b1c;
+    --border: #3c3c3c;
+    --text: #d4d4d4;
+    --text-dim: #8a8a8a;
+    --accent: #0a84ff;
+    --accent-hover: #2b96ff;
+    --green: #4ec9b0;
+    --red: #f14c4c;
+    --yellow: #dcdcaa;
+    --console-bg: #0b0b0b;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    overflow: hidden;
+  }
+
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ---------- Экран загрузки ---------- */
+  #loading {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    background: #141414;
+  }
+  .spinner {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 4px solid #2f2f2f;
+    border-top-color: var(--accent);
+    animation: spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-text {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 16px;
+    letter-spacing: .3px;
+  }
+
+  /* ---------- Каркас ---------- */
+  #app {
+    display: none;
+    height: 100vh;
+    grid-template-columns: 290px minmax(320px, 1fr) minmax(360px, 1.12fr);
+  }
+  #app.ready { display: grid; }
+
+  /* ---------- Сайдбар ---------- */
+  .sidebar {
+    background: var(--bg-alt);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-header h1 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: .4px;
+    color: #ffffff;
+  }
+  .sidebar-header .sub {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .progress {
+    height: 6px;
+    background: #3a3a3a;
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #0a84ff, #4ec9b0);
+    transition: width .35s ease;
+  }
+  .progress-text {
+    display: block;
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .lesson-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .lesson-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background .15s, border-color .15s;
+    font-size: 14px;
+    color: #c8c8c8;
+    user-select: none;
+  }
+  .lesson-item:hover { background: #2a2d2e; }
+  .lesson-item.active {
+    background: #37373d;
+    border-left-color: var(--accent);
+    color: #ffffff;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #5a5a5a;
+    flex: 0 0 auto;
+    transition: background .2s, border-color .2s;
+  }
+  .lesson-item.active .dot { border-color: #9a9a9a; }
+  .lesson-item.done .dot {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  /* ---------- Центральная колонка ---------- */
+  .content {
+    padding: 28px 32px 48px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .content h2 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    color: #ffffff;
+  }
+  .content .subtitle {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin: 0 0 22px;
+  }
+  .theory p { line-height: 1.65; margin: 12px 0; }
+  .theory h3 {
+    font-size: 16px;
+    margin: 24px 0 8px;
+    color: #eaeaea;
+  }
+  .theory code {
+    background: #2d2d30;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13.5px;
+    color: #ce9178;
+  }
+  .theory pre {
+    background: #161617;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 14px 0;
+  }
+  .theory pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.65;
+    display: block;
+    white-space: pre;
+  }
+  .c-kw  { color: #569cd6; }
+  .c-str { color: #ce9178; }
+  .c-com { color: #6a9955; font-style: italic; }
+  .c-num { color: #b5cea8; }
+  .c-fn  { color: #dcdcaa; }
+
+  .task {
+    background: #16222e;
+    border: 1px solid #2b4a63;
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 22px 0 0;
+    line-height: 1.6;
+  }
+  .task b { color: #7cc4ff; }
+
+  /* ---------- Правая колонка ---------- */
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #252526;
+    flex-wrap: wrap;
+  }
+  .panel-header .title {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: #333336;
+    color: #e2e2e2;
+    padding: 7px 13px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    transition: background .15s, border-color .15s, transform .05s, color .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #3f3f44; border-color: #565656; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  .editor-wrap {
+    flex: 1 1 52%;
+    min-height: 130px;
+    display: flex;
+  }
+  #editor {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: none;
+    outline: none;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 15px 18px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    tab-size: 4;
+    caret-color: #aeafad;
+  }
+  #editor::selection { background: #264f78; }
+
+  .console-wrap {
+    flex: 1 1 48%;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border);
+    min-height: 0;
+  }
+  #console {
+    flex: 1;
+    margin: 0;
+    overflow: auto;
+    background: var(--console-bg);
+    padding: 14px 16px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+  }
+  #console .out  { color: #d4d4d4; }
+  #console .sys  { color: #569cd6; }
+  #console .dim  { color: #7a7a7a; }
+  #console .ok   { color: var(--green); font-weight: 600; }
+  #console .err  { color: var(--red); font-weight: 600; }
+  #console .hint { color: var(--yellow); }
+
+  /* ---------- Адаптив ---------- */
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    #app.ready {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: 100vh;
+    }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+    .lesson-list { max-height: 210px; }
+    .content { overflow: visible; padding: 22px 18px 32px; }
+    .workspace { border-left: none; }
+    .editor-wrap { min-height: 280px; }
+    .console-wrap { min-height: 220px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p id="loading-text">Загрузка Python-среды...</p>
+</div>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>🐍 Python Course</h1>
+      <span class="sub">Интерактивный тренажёр</span>
+      <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+      <span class="progress-text" id="progress-text">Выполнено 0 из 5</span>
+    </div>
+    <ul class="lesson-list" id="lesson-list"></ul>
+  </aside>
+
+  <main class="content">
+    <h2 id="lesson-title">Загрузка...</h2>
+    <p class="subtitle" id="lesson-subtitle">Прочитай теорию и выполни задание в редакторе справа.</p>
+    <div class="theory" id="theory"></div>
+  </main>
+
+  <section class="workspace">
+    <div class="panel-header">
+      <span class="title">main.py</span>
+      <div class="toolbar">
+        <button class="btn" id="btn-reset">↺ Сбросить код</button>
+        <button class="btn btn-primary" id="btn-run" disabled>▶ Запустить</button>
+      </div>
+    </div>
+
+    <div class="editor-wrap">
+      <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+    </div>
+
+    <div class="console-wrap">
+      <div class="panel-header">
+        <span class="title">Консоль</span>
+        <div class="toolbar">
+          <button class="btn" id="btn-clear">Очистить</button>
+          <button class="btn" id="btn-next">Следующий урок →</button>
+        </div>
+      </div>
+      <pre id="console"></pre>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   ДАННЫЕ КУРСА
+   ========================================================= */
+const lessons = [
+  {
+    title: "1. Функция print()",
+    theory: `
+      <p><code>print()</code> — встроенная функция Python, которая выводит данные в консоль.</p>
+      <h3>Синтаксис</h3>
+      <pre><code>print("Привет, мир!")</code></pre>
+      <p>Текст в кавычках называется <b>строкой</b>. Python одинаково понимает двойные и одинарные кавычки:</p>
+      <pre><code>print('Python — это круто')</code></pre>
+      <p>Можно передать сразу несколько значений через запятую — они будут разделены пробелом:</p>
+      <pre><code>print("Мне", 25, "лет")
+# Мне 25 лет</code></pre>
+      <div class="task"><b>Задание.</b> Выведи на экран ровно одну строку: <code>Привет, мир!</code></div>
+    `,
+    starter: `# Выведи на экран фразу: Привет, мир!
+# Подсказка: используй функцию print()
+
+
+`,
+    expected: "Привет, мир!",
+    hint: "Нужно вызвать print(Привет, мир!) — проверь кавычки и восклицательный знак."
+  },
+  {
+    title: "2. Переменные и f-строки",
+    theory: `
+      <p><b>Переменная</b> — это имя, под которым хранится значение. В Python переменная создаётся присваиванием, без объявления типа:</p>
+      <pre><code>name = "Анна"
+age = 25
+print(name)</code></pre>
+      <h3>f-строки</h3>
+      <p><b>f-строка</b> — это строка с префиксом <code>f</code>, внутри которой в фигурных скобках подставляются значения переменных:</p>
+      <pre><code>name = "Анна"
+age = 25
+print(f"Меня зовут {name}, мне {age} лет")
+# Меня зовут Анна, мне 25 лет</code></pre>
+      <p>Внутри фигурных скобок можно писать целые выражения: <code>f"{2 + 2}"</code> даст <code>4</code>.</p>
+      <div class="task"><b>Задание.</b> Переменные <code>name</code> и <code>age</code> уже созданы. С помощью f-строки выведи фразу: <code>Меня зовут Анна, мне 25 лет</code></div>
+    `,
+    starter: `# Переменные уже созданы
+name = "Анна"
+age = 25
+
+# Выведи с помощью f-строки:
+# Меня зовут Анна, мне 25 лет
+
+`,
+    expected: "Меня зовут Анна, мне 25 лет",
+    hint: "Используй f и подставь переменные в фигурных скобках: {name} и {age}."
+  },
+  {
+    title: "3. Условные операторы (if/else)",
+    theory: `
+      <p>Условный оператор выполняет код только тогда, когда условие истинно:</p>
+      <pre><code>age = 20
+if age &gt;= 18:
+    print("Доступ разрешён")
+else:
+    print("Доступ запрещён")</code></pre>
+      <p>Обрати внимание на <b>двоеточие</b> после условия и <b>отступ в 4 пробела</b> — так Python понимает, какой код относится к ветке.</p>
+      <h3>Операторы сравнения</h3>
+      <pre><code>==   равно
+!=   не равно
+&gt;    больше
+&lt;    меньше
+&gt;=   больше или равно
+&lt;=   меньше или равно</code></pre>
+      <p>Оператор <code>%</code> возвращает остаток от деления: <code>7 % 2</code> равно <code>1</code>, а <code>8 % 2</code> равно <code>0</code>. Так проверяют чётность числа.</p>
+      <div class="task"><b>Задание.</b> Переменная <code>number</code> равна 7. Если число чётное — выведи <code>Чётное</code>, иначе — <code>Нечётное</code>.</div>
+    `,
+    starter: `# Переменная уже задана
+number = 7
+
+# Если number чётное — выведи "Чётное", иначе — "Нечётное"
+
+`,
+    expected: "Нечётное",
+    hint: "Проверь остаток от деления: if number % 2 == 0: ... else: ..."
+  },
+  {
+    title: "4. Циклы (for)",
+    theory: `
+      <p>Цикл <code>for</code> повторяет блок кода несколько раз. Чаще всего его используют вместе с функцией <code>range()</code>:</p>
+      <pre><code>for i in range(3):
+    print(i)
+# 0
+# 1
+# 2</code></pre>
+      <p><code>range(n)</code> выдаёт числа от <code>0</code> до <code>n - 1</code>. Если нужно начать с единицы, укажи два аргумента:</p>
+      <pre><code>for i in range(1, 6):
+    print(i)
+# 1
+# 2
+# 3
+# 4
+# 5</code></pre>
+      <p>Тело цикла выделяется отступом в 4 пробела — так же, как и в <code>if</code>.</p>
+      <div class="task"><b>Задание.</b> С помощью цикла <code>for</code> выведи числа от 1 до 5 — каждое на новой строке.</div>
+    `,
+    starter: `# Выведи числа от 1 до 5, каждое на новой строке,
+# используя цикл for
+
+
+`,
+    expected: "1\n2\n3\n4\n5",
+    hint: "Нужен цикл for i in range(1, 6): и внутри него print(i) с отступом."
+  },
+  {
+    title: "5. Функции (def)",
+    theory: `
+      <p><b>Функция</b> — это именованный блок кода, который можно вызывать много раз. Функция объявляется словом <code>def</code>:</p>
+      <pre><code>def greet(name):
+    return f"Привет, {name}!"
+
+print(greet("Мир"))
+# Привет, Мир!</code></pre>
+      <p>В скобках указываются <b>параметры</b> — данные, которые функция получает при вызове. Оператор <code>return</code> возвращает результат.</p>
+      <p>Если забыть <code>return</code>, функция вернёт <code>None</code>, и в консоли появится <code>None</code> вместо текста.</p>
+      <div class="task"><b>Задание.</b> Объяви функцию <code>greet(name)</code>, которая возвращает строку <code>Привет, &lt;name&gt;!</code>, и выведи результат вызова <code>greet("Мир")</code>.</div>
+    `,
+    starter: `# Объяви функцию greet(name), которая возвращает строку "Привет, <name>!"
+# Затем выведи результат вызова greet("Мир")
+
+
+`,
+    expected: "Привет, Мир!",
+    hint: "Не забудь return внутри функции и print(greet(Мир)) после неё."
+  }
+];
+
+/* =========================================================
+   СОСТОЯНИЕ
+   ========================================================= */
+let pyodide = null;
+let current = 0;
+const completed = new Set();
+
+const els = {
+  loading: document.getElementById('loading'),
+  loadingText: document.getElementById('loading-text'),
+  spinner: document.querySelector('.spinner'),
+  app: document.getElementById('app'),
+  list: document.getElementById('lesson-list'),
+  title: document.getElementById('lesson-title'),
+  theory: document.getElementById('theory'),
+  editor: document.getElementById('editor'),
+  consoleEl: document.getElementById('console'),
+  btnRun: document.getElementById('btn-run'),
+  btnReset: document.getElementById('btn-reset'),
+  btnNext: document.getElementById('btn-next'),
+  btnClear: document.getElementById('btn-clear'),
+  progressBar: document.getElementById('progress-bar'),
+  progressText: document.getElementById('progress-text')
+};
+
+/* =========================================================
+   ПОДСВЕТКА КОДА
+   ========================================================= */
+const PY_RE = /(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(False|None|True|and|as|assert|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b|\b(\d+(?:\.\d+)?)\b|\b([A-Za-z_]\w*)(?=\s*\()/g;
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlightPython(source) {
+  const escaped = escapeHtml(source);
+  return escaped.replace(PY_RE, (match, comment, str, keyword, num, fn) => {
+    if (comment) return '<span class="c-com">' + comment + '</span>';
+    if (str) return '<span class="c-str">' + str + '</span>';
+    if (keyword) return '<span class="c-kw">' + keyword + '</span>';
+    if (num) return '<span class="c-num">' + num + '</span>';
+    if (fn) return '<span class="c-fn">' + fn + '</span>';
+    return match;
+  });
+}
+
+function highlightTheory() {
+  els.theory.querySelectorAll('pre code').forEach((el) => {
+    el.innerHTML = highlightPython(el.textContent);
+  });
+}
+
+/* =========================================================
+   КОНСОЛЬ
+   ========================================================= */
+function consoleWrite(text, cls) {
+  const span = document.createElement('span');
+  if (cls) span.className = cls;
+  span.textContent = text;
+  els.consoleEl.appendChild(span);
+  els.consoleEl.scrollTop = els.consoleEl.scrollHeight;
+}
+
+function clearConsole() {
+  els.consoleEl.textContent = '';
+}
+
+/* =========================================================
+   ИНТЕРФЕЙС
+   ========================================================= */
+function renderSidebar() {
+  els.list.textContent = '';
+
+  lessons.forEach((lesson, i) => {
+    const li = document.createElement('li');
+    li.className = 'lesson-item';
+    if (i === current) li.classList.add('active');
+    if (completed.has(i)) li.classList.add('done');
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+
+    const label = document.createElement('span');
+    label.textContent = lesson.title;
+
+    li.appendChild(dot);
+    li.appendChild(label);
+    li.addEventListener('click', () => openLesson(i));
+    els.list.appendChild(li);
+  });
+
+  const percent = (completed.size / lessons.length) * 100;
+  els.progressBar.style.width = percent + '%';
+  els.progressText.textContent = 'Выполнено ' + completed.size + ' из ' + lessons.length;
+}
+
+function openLesson(index) {
+  if (lessons[current] && els.editor.value !== undefined) {
+    lessons[current].draft = els.editor.value;
+  }
+
+  current = index;
+  const lesson = lessons[index];
+
+  els.title.textContent = lesson.title;
+  els.theory.innerHTML = lesson.theory;
+  highlightTheory();
+
+  els.editor.value = (lesson.draft !== undefined) ? lesson.draft : lesson.starter;
+  els.editor.scrollTop = 0;
+
+  clearConsole();
+  renderSidebar();
+  els.editor.focus();
+}
+
+/* =========================================================
+   ВЫПОЛНЕНИЕ PYTHON
+   ========================================================= */
+async function executePython(userCode) {
+  const wrapper = [
+    'import sys, io, traceback',
+    '_buf = io.StringIO()',
+    '_old_out = sys.stdout',
+    '_old_err = sys.stderr',
+    'sys.stdout = _buf',
+    'sys.stderr = _buf',
+    'try:',
+    '    exec(compile(' + JSON.stringify(userCode) + ', "<main.py>", "exec"), {"__name__": "__main__"})',
+    'except BaseException:',
+    '    traceback.print_exc(file=_buf)',
+    'finally:',
+    '    sys.stdout = _old_out',
+    '    sys.stderr = _old_err',
+    '_result = _buf.getvalue()'
+  ].join('\n');
+
+  await pyodide.runPythonAsync(wrapper);
+  const result = pyodide.globals.get('_result');
+  return typeof result === 'string' ? result : '';
+}
+
+function normalize(text) {
+  return String(text)
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+$/, ''))
+    .join('\n')
+    .replace(/^\n+/, '')
+    .replace(/\n+$/, '');
+}
+
+async function runCode() {
+  if (!pyodide) return;
+
+  const lesson = lessons[current];
+  const code = els.editor.value;
+
+  clearConsole();
+  consoleWrite('>>> python main.py\n\n', 'sys');
+
+  els.btnRun.disabled = true;
+  els.btnRun.textContent = '⏳ Выполняется...';
+
+  let output = '';
+  try {
+    output = await executePython(code);
+  } catch (err) {
+    output = 'Ошибка среды выполнения: ' + (err && err.message ? err.message : err);
+  }
+
+  els.btnRun.disabled = false;
+  els.btnRun.textContent = '▶ Запустить';
+
+  const printable = output.replace(/\s+$/, '');
+  if (printable.length > 0) {
+    consoleWrite(printable + '\n', 'out');
+  } else {
+    consoleWrite('(программа не вывела ничего)\n', 'dim');
+  }
+
+  if (normalize(output) === normalize(lesson.expected)) {
+    consoleWrite('\n✅ Задание выполнено верно!\n', 'ok');
+    if (!completed.has(current)) {
+      completed.add(current);
+      renderSidebar();
+    }
+  } else {
+    consoleWrite('\n❌ Вывод не совпадает с ожидаемым.\n', 'err');
+    consoleWrite('💡 ' + lesson.hint + '\n', 'hint');
+  }
+
+  lessons[current].draft = code;
+}
+
+/* =========================================================
+   КНОПКИ
+   ========================================================= */
+els.btnRun.addEventListener('click', () => {
+  if (!els.btnRun.disabled) runCode();
+});
+
+els.btnReset.addEventListener('click', () => {
+  lessons[current].draft = undefined;
+  els.editor.value = lessons[current].starter;
+  clearConsole();
+  consoleWrite('Код сброшен к исходному состоянию.\n', 'dim');
+  els.editor.focus();
+});
+
+els.btnClear.addEventListener('click', clearConsole);
+
+els.btnNext.addEventListener('click', () => {
+  if (current < lessons.length - 1) {
+    openLesson(current + 1);
+  } else {
+    clearConsole();
+    consoleWrite('🎉 Это был последний урок. Ты прошёл весь курс!\n', 'ok');
+  }
+});
+
+els.editor.addEventListener('keydown', (event) => {
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    const start = els.editor.selectionStart;
+    const end = els.editor.selectionEnd;
+    els.editor.value = els.editor.value.slice(0, start) + '    ' + els.editor.value.slice(end);
+    els.editor.selectionStart = els.editor.selectionEnd = start + 4;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    if (!els.btnRun.disabled) runCode();
+  }
+});
+
+/* =========================================================
+   ЗАГРУЗКА PYODIDE
+   ========================================================= */
+async function init() {
+  try {
+    pyodide = await loadPyodide({
+      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/'
+    });
+  } catch (err) {
+    els.spinner.style.display = 'none';
+    els.loadingText.textContent =
+      'Не удалось загрузить Python-среду. Проверь подключение к интернету и обнови страницу.';
+    return;
+  }
+
+  els.loading.style.display = 'none';
+  els.app.classList.add('ready');
+  els.btnRun.disabled = false;
+
+  renderSidebar();
+  openLesson(0);
+
+  consoleWrite('Python 3 (Pyodide) готов к работе.\n', 'dim');
+  consoleWrite('Нажми «▶ Запустить» или Ctrl+Enter, чтобы выполнить код.\n', 'dim');
+}
+
+init();
+</script>
+</body>
+</html>
